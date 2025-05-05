@@ -1,0 +1,70 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Install PostgreSQL build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-server-dev-all build-essential
+      
+      - name: Build extension
+        run: |
+          make
+          mkdir -p dist
+          cp *.control dist/
+          cp *.so dist/
+          cp *.sql dist/
+          cd dist && zip -r ../pge_timetable.zip *
+      
+      - name: Get latest release
+        id: latest_release
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const releases = await github.rest.repos.listReleases({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+            
+            if (releases.data.length === 0) {
+              console.log('No releases found, creating a new one');
+              const newRelease = await github.rest.repos.createRelease({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag_name: `v1.0.0-${new Date().toISOString().slice(0, 10)}`,
+                name: 'Latest Extension Build',
+                body: 'Automated build of the PGE Timetable extension',
+                draft: false,
+                prerelease: false
+              });
+              return newRelease.data.id;
+            }
+            
+            return releases.data[0].id;
+      
+      - name: Upload release asset
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const releaseId = ${{ steps.latest_release.outputs.result }};
+            
+            await github.rest.repos.uploadReleaseAsset({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: releaseId,
+              name: 'pge_timetable.zip',
+              data: fs.readFileSync('pge_timetable.zip')
+            });

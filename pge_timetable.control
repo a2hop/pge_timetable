@@ -1,0 +1,5 @@
+# PGE Timetable Extension
+comment = 'Extension for generating time hierarchies'
+default_version = '1.0'
+module_pathname = '$libdir/pge_timetable'
+relocatable = true
