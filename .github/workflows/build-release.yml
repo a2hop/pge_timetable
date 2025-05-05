@@ -22,13 +22,24 @@ jobs:
           sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
           wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
           sudo apt-get update
-          # Install specific PostgreSQL version and development packages
-          sudo apt-get install -y postgresql-14 postgresql-server-dev-14
-          # Show installed packages for debugging
+          # Install specific PostgreSQL version and development packages - use version 16
+          sudo apt-get install -y postgresql-16 postgresql-server-dev-16
+          # Show installed packages and paths for debugging
           dpkg -l | grep postgres
+          find /usr -name "postgres.h" -type f
+          pg_config --includedir
+          pg_config --pkgincludedir
       
       - name: Build extension
         run: |
+          # Set include path explicitly if needed
+          export C_INCLUDE_PATH=$(pg_config --includedir):$(pg_config --includedir)/server
+          export CPLUS_INCLUDE_PATH=$(pg_config --includedir):$(pg_config --includedir)/server
+          # Print env vars for debugging
+          echo "Include paths: $C_INCLUDE_PATH"
+          echo "Current directory: $(pwd)"
+          ls -la
+          # Build
           make
           mkdir -p dist
           cp *.control dist/
